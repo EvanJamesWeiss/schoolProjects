@@ -10830,6 +10830,10 @@ label.panel-block:hover {
   padding-left: 15rem;
 }
 
+.hero.is-fullheight.has-fixed-navbar {
+    min-height: calc(100vh);
+}
+
 @media screen and (min-width: 1024px) {
   .section.is-medium {
     padding: 9rem 1.5rem;
