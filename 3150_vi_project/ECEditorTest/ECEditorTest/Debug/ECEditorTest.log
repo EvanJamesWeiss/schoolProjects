@@ -1,0 +1,4 @@
+﻿  ECEditorTest.cpp
+  ECTextViewImp.cpp
+C:\Users\ejwei\Desktop\Personsal\School\Semester_5\3150\project\schoolProjects\3150_vi_project\ECEditorTest\ECEditorTest\ECTextViewImp.cpp(10,10): fatal error C1083: Cannot open include file: 'termios.h': No such file or directory
+  Generating Code...
