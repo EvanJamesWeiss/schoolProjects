@@ -6,11 +6,8 @@
 
 using namespace  std;
 
-int myCounter = 0;
-
 int main(int argc, char *argv[])
 {
-    //
     ECTextEditor wndTest;
     wndTest.AddRow("~");
     wndTest.AddRow("CSE 3150");

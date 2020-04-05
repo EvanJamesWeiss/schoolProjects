@@ -8,7 +8,8 @@
 
 using namespace  std;
 
-
+// Wrapper on the TextView that allows functionality outside of the predefined view class
+// independent of the TextView implementation
 class ECTextEditor : public ECTextViewImp
 {
 public:
@@ -19,6 +20,7 @@ public:
         ECTextViewImp::AddRow(str);
         listRows.push_back(str);
     }
+
     void InitRows()
     {
         ECTextViewImp::InitRows();
@@ -72,7 +74,8 @@ private:
 
     vector<string> listRows;
     ECCommandHistory histCmds;
-
+       
+    // If a row was updated in the text editor, it also needs to be updated in the view
     void UpdateView()
     {
         ECTextViewImp::InitRows();
@@ -84,6 +87,8 @@ private:
 
 };
 
+//---------------------------------------------------
+// Beginning of command definitions
 class MoveCursorRight : public ECCommand
 {
 public:
@@ -312,7 +317,11 @@ public:
 private:
     ECTextEditor& subject;
 };
+// End of command definitions
+//---------------------------------------------------
 
+
+// Implements the observer pattern
 class ECViewHandler : public ECObserver
 {
 public:
@@ -325,8 +334,8 @@ public:
 
         switch (PK)
         {
-        case CTRL_L:
-            subject.AddRow(to_string(subject.GetRowString(CY + 1).length()));
+        case KEY_NULL:
+            // If there is no input, skip this
             break;
         case ARROW_LEFT:
             subject.Execute(new MoveCursorLeft(subject));
@@ -343,36 +352,39 @@ public:
         case ENTER:
             subject.Execute(new PressEnter(subject, CX));
             break;
-        case KEY_NULL:
-            break;
         case BACKSPACE:
         {
             if (CX == 0 && CY != 0)
             {
+                // Merge two rows if backspacing while on the first position in a row
                 subject.Execute(new BackspaceMerge(subject));
             }
             else if (CX != 0)
             {
+                // Delete a character
                 subject.Execute(new DeleteCharacter(subject));
             }
             break;
         }
         case CTRL_Z:
+            // Undo a command
             subject.Undo();
             break;
         case CTRL_Y:
+            // Redo a command
             subject.Redo();
             break;
         default:
         {
             if (PK >= 32 && PK <= 125)
             {
-                // inputcharacter
+                // input a character
                 subject.Execute(new InputCharacter(subject, char(PK)));
             }
             else
             {
-                subject.AddRow("");
+                // If this is added, it means that the keystoke handler has not been added yet
+                subject.AddRow("Coming Soon...");
             }
             break;
         }
