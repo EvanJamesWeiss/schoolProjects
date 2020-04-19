@@ -52,7 +52,7 @@ void InitializeRows(ECTextEditor& wnd, string filename)
 
         // Read in all text from the file
         string x;
-        while (inFile >> x)
+        while (getline(inFile, x))
         {
             wnd.AddRow(x);
         }
@@ -69,6 +69,19 @@ void InitializeRows(ECTextEditor& wnd, string filename)
 
 }
 
+void SaveToFile(ECTextEditor& wnd, string filename)
+{
+    ofstream outFile;
+    outFile.open(filename);
+    
+    for (int i = 1; i < wnd.GetNumFilledRows(); ++i)
+    {
+        outFile << wnd.GetRowString(i) << "\n";
+    }
+
+    outFile.close();
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -81,6 +94,9 @@ int main(int argc, char *argv[])
     wndTest.Attach(&Handler);
 
     wndTest.Show();
+
+    // After the user quits, save the text in the editor to the file
+    SaveToFile(wndTest, (string)argv[1]);
     
     return 0;
 }
