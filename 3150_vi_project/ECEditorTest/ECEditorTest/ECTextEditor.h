@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <cstdlib>
+#include <cmath>
 
 using namespace  std;
 
@@ -19,6 +20,7 @@ public:
     {
         ECTextViewImp::AddRow(str);
         listRows.push_back(str);
+        this->UpdateView();
     }
 
     void InitRows()
@@ -29,23 +31,27 @@ public:
 
     string GetRowString(int row)
     {
+        row += pageNum * (this->GetRowNumInView() - offset);
         return listRows[row];
     }
 
     void InsertRow(int row, string str = "")
     {
+        row += pageNum * (this->GetRowNumInView() - offset);
         listRows.insert(listRows.begin() + row, str);
         this->UpdateView();
     }
 
     void UpdateRow(int row, string str)
     {
+        row += pageNum * (this->GetRowNumInView() - offset);
         listRows[row] = str;
         this->UpdateView();
     }
 
     void DeleteRow(int row)
     {
+        row += pageNum * (this->GetRowNumInView() - offset);
         listRows.erase(listRows.begin() + row);
         this->UpdateView();
     }
@@ -67,22 +73,87 @@ public:
 
     int GetNumFilledRows()
     {
+        int startpos = pageNum * this->GetRowNumInView();
+        startpos = (pageNum == 0) ? startpos : startpos - offset;
+        int endpos = startpos + this->GetRowNumInView();
+        endpos = ((int)currentDoc.size() < endpos) ? currentDoc.size() : endpos;
+        
+        return endpos - startpos;
+    }
+
+    int GetTotalRows()
+    {
         return listRows.size();
+    }
+
+    void SetPageNum(int num)
+    {
+        pageNum = num;
+        this->SetCursorX(0);
+        this->SetCursorY(0);
+        this->UpdateView();
+    }
+
+    int GetPageNum()
+    {
+        return pageNum;
     }
 
 private:
 
     vector<string> listRows;
+    int pageNum = 0;
+    int offset = 1;
+    vector<int> modifiers;
+    vector<string> currentDoc; // = vector<string>();
+
     ECCommandHistory histCmds;
        
     // If a row was updated in the text editor, it also needs to be updated in the view
     void UpdateView()
     {
         ECTextViewImp::InitRows();
-        for (unsigned int i = 0; i < listRows.size(); ++i)
+        MapRowsToPage();
+
+        int startpos = pageNum * this->GetRowNumInView();
+        startpos = (pageNum == 0) ? startpos : startpos - offset;
+        int endpos = startpos + this->GetRowNumInView();
+        endpos = ((int)currentDoc.size() < endpos) ? currentDoc.size() : endpos;
+
+        for (int i = startpos; i < endpos; ++i)
         {
-            ECTextViewImp::AddRow(listRows[i]);
+            ECTextViewImp::AddRow(currentDoc[i]);
         }
+    }
+
+    void MapRowsToPage()
+    {
+        currentDoc.clear();
+        string row;
+
+        for (int i = 0; i < (int)listRows.size(); ++i)
+        {
+            row = listRows[i];
+            while ((int)row.size() > this->GetColNumInView() - offset)
+            {
+                currentDoc.push_back(SplitRow(row));
+            }
+            currentDoc.push_back(row);
+            //cerr << "***" + row << endl << "***" << (int)row.size() << endl << "***" << this->GetRowNumInView();
+        }
+    }
+
+    string SplitRow(string& row)
+    {
+        int pos = this->GetColNumInView() - offset;
+        while (row[pos] != ' ')
+        {
+            pos -= 1;
+            if (pos == 0) { return row; }
+        }
+        string output = row.substr(0, pos);
+        row = row.substr(pos + 1, row.size());
+        return output;
     }
 
 };
@@ -317,6 +388,52 @@ public:
 private:
     ECTextEditor& subject;
 };
+
+class PageUp : public ECCommand
+{
+public:
+    PageUp(ECTextEditor& doc) : subject(doc), CX(0), CY(0) {}
+    void Execute()
+    {
+        CX = subject.GetCursorX();
+        CY = subject.GetCursorY();
+        subject.SetPageNum(subject.GetPageNum() - 1);
+    }
+    void UnExecute()
+    {
+        subject.SetPageNum(subject.GetPageNum() + 1);
+        subject.SetCursorX(CX);
+        subject.SetCursorY(CY);
+    }
+private:
+    ECTextEditor& subject;
+    int CX;
+    int CY;
+};
+
+class PageDown : public ECCommand
+{
+public:
+    PageDown(ECTextEditor& doc) : subject(doc), CX(0), CY(0) {}
+    void Execute()
+    {
+        CX = subject.GetCursorX();
+        CY = subject.GetCursorY();
+        subject.SetPageNum(subject.GetPageNum() + 1);
+    }
+    void UnExecute()
+    {
+
+        subject.SetPageNum(subject.GetPageNum() - 1);
+        subject.SetCursorX(CX);
+        subject.SetCursorY(CY);
+
+    }
+private:
+    ECTextEditor& subject;
+    int CX;
+    int CY;
+};
 // End of command definitions
 //---------------------------------------------------
 
@@ -334,6 +451,16 @@ public:
 
         switch (PK)
         {
+        case PAGE_UP:
+            if (subject.GetPageNum() == 0)
+            {
+                break;
+            }
+            subject.Execute(new PageUp(subject));
+            break;
+        case PAGE_DOWN:
+            subject.Execute(new PageDown(subject));
+            break;
         case KEY_NULL:
             // If there is no input, skip this
             break;
@@ -344,13 +471,31 @@ public:
             subject.Execute(new MoveCursorRight(subject));
             break;
         case ARROW_DOWN:
-            subject.Execute(new MoveCursorDown(subject, CX));
+            if (CY == subject.GetRowNumInView() - 2)
+            {
+                subject.Execute(new PageDown(subject));
+            }
+            else
+            {
+                subject.Execute(new MoveCursorDown(subject, CX));
+            }
             break;
         case ARROW_UP:
-            subject.Execute(new MoveCursorUp(subject));
+            if (CY == 0 && subject.GetPageNum() != 0)
+            {
+                subject.Execute(new PageUp(subject));
+            }
+            else
+            {
+                subject.Execute(new MoveCursorUp(subject));
+            }
             break;
         case ENTER:
             subject.Execute(new PressEnter(subject, CX));
+            if (CY == subject.GetRowNumInView() - 2)
+            {
+                subject.Execute(new PageDown(subject));
+            }
             break;
         case BACKSPACE:
         {
@@ -384,7 +529,7 @@ public:
             else
             {
                 // If this is added, it means that the keystoke handler has not been added yet
-                subject.AddRow("Coming Soon...");
+                subject.AddRow("Coming Soon..." + to_string(PK));
             }
             break;
         }

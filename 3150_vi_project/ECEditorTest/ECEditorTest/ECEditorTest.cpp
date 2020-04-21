@@ -73,8 +73,9 @@ void SaveToFile(ECTextEditor& wnd, string filename)
 {
     ofstream outFile;
     outFile.open(filename);
+    wnd.SetPageNum(0);
     
-    for (int i = 1; i < wnd.GetNumFilledRows(); ++i)
+    for (int i = 1; i < wnd.GetTotalRows(); ++i)
     {
         outFile << wnd.GetRowString(i) << "\n";
     }

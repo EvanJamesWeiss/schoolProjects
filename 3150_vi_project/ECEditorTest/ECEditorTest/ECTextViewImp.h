@@ -57,8 +57,8 @@ enum KEY_ACTION {
     DEL_KEY,
     HOME_KEY,
     END_KEY,
-    PAGE_UP,
-    PAGE_DOWN
+    PAGE_UP = 1007,
+    PAGE_DOWN = 1008
 };
 
 
