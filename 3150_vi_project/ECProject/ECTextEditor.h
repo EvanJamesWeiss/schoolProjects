@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <cstdlib>
+#include <cmath>
 
 using namespace  std;
 
@@ -19,6 +20,7 @@ public:
     {
         ECTextViewImp::AddRow(str);
         listRows.push_back(str);
+        this->UpdateView();
     }
 
     void InitRows()
@@ -29,24 +31,36 @@ public:
 
     string GetRowString(int row)
     {
+        row = GetActualRow(row);
         return listRows[row];
     }
 
-    void InsertRow(int row, string str = "")
+    void InsertRow(int row, string str = "", int mod = 0)
     {
-        listRows.insert(listRows.begin() + row, str);
+        int Arow = GetActualRow(row);
+        // Just in case the user tries to add a row at the end of the file
+        if ((listRows.begin() + Arow + mod) > listRows.end())
+        {
+            listRows.push_back(str);
+        }
+        else
+        {
+            listRows.insert(listRows.begin() + Arow + mod, str);
+        }
         this->UpdateView();
     }
 
-    void UpdateRow(int row, string str)
+    void UpdateRow(int row, string str, int mod = 0)
     {
-        listRows[row] = str;
+        row = GetActualRow(row);
+        listRows[row + mod] = str;
         this->UpdateView();
     }
 
     void DeleteRow(int row)
     {
-        listRows.erase(listRows.begin() + row);
+        int Arow = GetActualRow(row);
+        listRows.erase(listRows.begin() + Arow + (GetModifier(row + 1) - GetModifier(row)));
         this->UpdateView();
     }
 
@@ -67,22 +81,144 @@ public:
 
     int GetNumFilledRows()
     {
+        int startpos = pageNum * this->GetRowNumInView();
+        startpos = (pageNum == 0) ? startpos : startpos - GetOffset();
+        int endpos = startpos + this->GetRowNumInView();
+        endpos = ((int)currentDoc.size() < endpos) ? currentDoc.size() : endpos;
+        
+        return endpos - startpos;
+    }
+
+    int GetTotalRows()
+    {
         return listRows.size();
+    }
+
+    string GetOutputString(int i)
+    {
+        return listRows[i];
+    }
+
+    void SetPageNum(int num)
+    {
+        pageNum = num;
+        this->SetCursorX(0);
+        this->SetCursorY(0);
+        this->UpdateView();
+    }
+
+    int GetPageNum()
+    {
+        return pageNum;
+    }
+
+    int GetActualRow(int row) // Get row number within listRows
+    {
+        row += GetRowAdder();
+        row -= modifiers[row];
+        return row;
+    }
+
+    int GetActualCol(int CX) // Get column number within a string of listRows
+    {
+        int mod = 0; 
+        int n = this->GetCursorY() + 1;
+        while (GetModifier(n) != GetModifier(n - 1))
+        {
+            mod += GetCurrentDocString(n - 1).size() + 1;
+            n -= 1;
+        }
+        return CX + mod;
+    }
+
+    int GetModifier(int row)
+    {
+        row += GetRowAdder();
+        return modifiers[row];
+    }
+
+    string GetCurrentDocString(int row)
+    {
+        row += GetRowAdder();
+        return currentDoc[row];
+    }
+
+    int GetRowAdder()
+    {
+        return (pageNum * (this->GetRowNumInView() - 1));
     }
 
 private:
 
     vector<string> listRows;
+    int pageNum = 0;
+    vector<int> modifiers;
+    vector<string> currentDoc;
+
     ECCommandHistory histCmds;
        
     // If a row was updated in the text editor, it also needs to be updated in the view
     void UpdateView()
     {
         ECTextViewImp::InitRows();
-        for (unsigned int i = 0; i < listRows.size(); ++i)
+        MapRowsToPage();
+
+        int startpos = pageNum * this->GetRowNumInView();
+        startpos = (pageNum == 0) ? startpos : startpos - GetOffset();
+        int endpos = startpos + this->GetRowNumInView();
+        endpos = ((int)currentDoc.size() < endpos) ? currentDoc.size() : endpos;
+
+        for (int i = startpos; i < endpos; ++i)
         {
-            ECTextViewImp::AddRow(listRows[i]);
+            ECTextViewImp::AddRow(currentDoc[i]);
         }
+    }
+
+    // Maps listRows so a new list that can be viewed on screen
+    void MapRowsToPage()
+    {
+        currentDoc.clear();
+        modifiers.clear();
+        string row;
+        int mod = 0;
+
+        for (int i = 0; i < (int)listRows.size(); ++i)
+        {
+            row = listRows[i];
+            
+            while ((int)row.size() > this->GetColNumInView() - 1)
+            {
+                currentDoc.push_back(SplitRow(row));
+                modifiers.push_back(mod); 
+                mod += 1;
+            }
+            currentDoc.push_back(row);
+            modifiers.push_back(mod);
+            //cerr << "***" + row << endl << "***" << (int)row.size() << endl << "***" << this->GetRowNumInView();
+        }
+        modifiers.push_back(mod);
+    }
+
+    // Helper to MapRowsToPage. Used to cut off the first part of the string and return it.
+    // The first part will not be longer than the 
+    string SplitRow(string& row)
+    {
+        int pos = this->GetColNumInView() - 1;
+        while (row[pos] != ' ')
+        {
+            pos -= 1;
+            if (pos == 0) { return row; }
+        }
+        string output = row.substr(0, pos);
+        row = row.substr(pos + 1, row.size());
+        return output;
+    }
+
+    // used in a few places, just to make things consistent
+    int GetOffset()
+    {
+        //return 0;
+        return pageNum;
     }
 
 };
@@ -95,7 +231,7 @@ public:
     MoveCursorRight(ECTextEditor& doc) : subject(doc) {}
     void Execute()
     {
-        if (subject.GetCursorX() + 1 <= (int)subject.GetRowString(subject.GetCursorY() + 1).length() + 1)
+        if (subject.GetCursorX() + 1 <= (int)subject.GetCurrentDocString(subject.GetCursorY() + 1).length() + 1)
         {
             subject.SetCursorX(subject.GetCursorX() + 1);
         }
@@ -192,28 +328,65 @@ public:
     InputCharacter(ECTextEditor& doc, char pk) : subject(doc), PK(pk) {}
     void Execute()
     {
-        string mystr = subject.GetRowString(subject.GetCursorY() + 1);
-        mystr.insert(mystr.begin() + subject.GetCursorX(), PK);
-        subject.UpdateRow(subject.GetCursorY() + 1, mystr);
-        if (subject.GetCursorX() + 1 <= (int)subject.GetRowString(subject.GetCursorY() + 1).length() + 1)
+        CX = subject.GetCursorX();
+        CY = subject.GetCursorY();
+        string mystr = subject.GetRowString(CY + 1);
+
+        // In the event that the cursor is beyond the length of the string... just so it won't crash
+        if (mystr.begin() + subject.GetActualCol(CX) > mystr.end())
         {
-            subject.SetCursorX(subject.GetCursorX() + 1);
+            mystr.push_back(' ');
+            mystr.push_back(PK);
+            subject.SetCursorX(CX + 1);
         }
+        else
+        {
+            mystr.insert(mystr.begin() + subject.GetActualCol(CX), PK);
+        }
+
+        string lineStr = subject.GetCurrentDocString(CY + 1);
+        int eol = subject.GetColNumInView() - 1;
+
+        // Find the first last char in the line,
+        while (lineStr[eol] == ' ')
+        {
+            eol -= 1;
+        }
+
+        while (lineStr[eol] != ' ')
+        {
+            eol -= 1;
+        }
+
+        // Handle cursor movement if the line is as long as the window
+        if (CX >= eol && ((int)subject.GetCurrentDocString(CY + 1).size() >= subject.GetColNumInView() - 1)) 
+        {
+            subject.SetCursorX(CX - eol);
+            subject.SetCursorY(CY + 1); // next row down
+        }
+        else if (CX + 1 <= (int)subject.GetCurrentDocString(CY + 1).length() + 1)
+        {
+            // normal functionality if there aren't multiple lines
+            subject.SetCursorX(CX + 1);
+        }
+        // finally, update the row
+        subject.UpdateRow(CY + 1, mystr);
     }
     void UnExecute()
     {
+        int iCX = subject.GetCursorX();
         string mystr = subject.GetRowString(subject.GetCursorY() + 1);
-        mystr.erase(mystr.begin() + subject.GetCursorX() - 1);
+        mystr.erase(mystr.begin() + subject.GetActualCol(iCX) - 1);
         subject.UpdateRow(subject.GetCursorY() + 1, mystr);
-        if (subject.GetCursorX() - 1 >= 0)
-        {
-            subject.SetCursorX(subject.GetCursorX() - 1);
-        }
+        subject.SetCursorX(CX);
+        subject.SetCursorY(CY);
     }
 
 private:
     ECTextEditor& subject;
     char PK;
+    int CX = 0;
+    int CY = 0;
 };
 
 class DeleteCharacter : public ECCommand
@@ -222,8 +395,9 @@ public:
     DeleteCharacter(ECTextEditor& doc) : subject(doc), PK(char(0)) {}
     void UnExecute()
     {
+        int CX = subject.GetCursorX();
         string mystr = subject.GetRowString(subject.GetCursorY() + 1);
-        mystr.insert(mystr.begin() + subject.GetCursorX(), PK);
+        mystr.insert(mystr.begin() + subject.GetActualCol(CX), PK);
         subject.UpdateRow(subject.GetCursorY() + 1, mystr);
         if (subject.GetCursorX() + 1 <= (int)subject.GetRowString(subject.GetCursorY() + 1).length() + 1)
         {
@@ -232,9 +406,10 @@ public:
     }
     void Execute()
     {
+        int CX = subject.GetCursorX();
         string mystr = subject.GetRowString(subject.GetCursorY() + 1);
-        PK = mystr.at(subject.GetCursorX() - 1);
-        mystr.erase(mystr.begin() + subject.GetCursorX() - 1);
+        PK = mystr.at(subject.GetActualCol(CX) - 1);
+        mystr.erase(mystr.begin() + subject.GetActualCol(CX) - 1);
         subject.UpdateRow(subject.GetCursorY() + 1, mystr);
         if (subject.GetCursorX() - 1 >= 0)
         {
@@ -253,16 +428,22 @@ public:
     PressEnter(ECTextEditor& doc, int cx) : subject(doc), CX(cx) {}
     void Execute()
     {
-        subject.InsertRow(subject.GetCursorY() + 2);
+        //subject.InsertRow(subject.GetCursorY() + 2);
         string lineStr = subject.GetRowString(subject.GetCursorY() + 1);
-        string frontStr = lineStr.substr(0, CX);
+        string frontStr = lineStr.substr(0, subject.GetActualCol(CX));
         string backStr = "";
-        if (CX != (int)lineStr.length() + 1)
+        
+        if (subject.GetActualCol(CX) != (int)lineStr.length() + 1)
         {
-            backStr = lineStr.substr(CX, lineStr.length());
+            backStr = lineStr.substr(subject.GetActualCol(CX), lineStr.length());
         }
+
+        subject.InsertRow(subject.GetCursorY() + 1, "", 1);
+
         subject.UpdateRow(subject.GetCursorY() + 1, frontStr);
-        subject.UpdateRow(subject.GetCursorY() + 2, backStr);
+
+        subject.UpdateRow(subject.GetCursorY() + 1, backStr, 1);
+
         subject.SetCursorX(0);
         subject.SetCursorY(subject.GetCursorY() + 1);
     }
@@ -271,8 +452,15 @@ public:
         string lineStr = subject.GetRowString(subject.GetCursorY() + 1);
         string aboveStr = subject.GetRowString(subject.GetCursorY());
         string comboStr = aboveStr + lineStr;
-        subject.UpdateRow(subject.GetCursorY(), comboStr);
-        subject.DeleteRow(subject.GetCursorY() + 1);
+
+        int n = subject.GetCursorY();
+        while (subject.GetModifier(n) != subject.GetModifier(n - 1))
+        {
+            n -= 1;
+        }
+
+        subject.DeleteRow(subject.GetCursorY());
+        subject.UpdateRow(n, comboStr);
         subject.SetCursorX(CX);
         if (subject.GetCursorY() != 0)
         {
@@ -291,12 +479,12 @@ public:
     BackspaceMerge(ECTextEditor& doc) : subject(doc) {}
     void UnExecute()
     {
-        subject.InsertRow(subject.GetCursorY() + 2);
         string lineStr = subject.GetRowString(subject.GetCursorY() + 1);
-        string frontStr = lineStr.substr(0, subject.GetCursorX());
-        string backStr = lineStr.substr(subject.GetCursorX(), lineStr.length());
+        string frontStr = lineStr.substr(0, subject.GetActualCol(subject.GetCursorX()));
+        string backStr = lineStr.substr(subject.GetActualCol(subject.GetCursorX()), lineStr.length());
+        subject.InsertRow(subject.GetCursorY() + 1, "", 1);
         subject.UpdateRow(subject.GetCursorY() + 1, frontStr);
-        subject.UpdateRow(subject.GetCursorY() + 2, backStr);
+        subject.UpdateRow(subject.GetCursorY() + 1, backStr, 1);
         subject.SetCursorX(0);
         subject.SetCursorY(subject.GetCursorY() + 1);
     }
@@ -305,17 +493,64 @@ public:
         string lineStr = subject.GetRowString(subject.GetCursorY() + 1);
         string aboveStr = subject.GetRowString(subject.GetCursorY());
         string comboStr = aboveStr + lineStr;
+        int currlen = subject.GetCurrentDocString(subject.GetCursorY()).length();
         subject.UpdateRow(subject.GetCursorY(), comboStr);
         subject.DeleteRow(subject.GetCursorY() + 1);
-        subject.SetCursorX(aboveStr.length());
         if (subject.GetCursorY() != 0)
         {
             subject.SetCursorY(subject.GetCursorY() - 1);
         }
+        subject.SetCursorX(((int)aboveStr.length() > subject.GetColNumInView()) ? currlen : aboveStr.length());
     }
 
 private:
     ECTextEditor& subject;
+};
+
+class PageUp : public ECCommand
+{
+public:
+    PageUp(ECTextEditor& doc) : subject(doc), CX(0), CY(0) {}
+    void Execute()
+    {
+        CX = subject.GetCursorX();
+        CY = subject.GetCursorY();
+        subject.SetPageNum(subject.GetPageNum() - 1);
+    }
+    void UnExecute()
+    {
+        subject.SetPageNum(subject.GetPageNum() + 1);
+        subject.SetCursorX(CX);
+        subject.SetCursorY(CY);
+    }
+private:
+    ECTextEditor& subject;
+    int CX;
+    int CY;
+};
+
+class PageDown : public ECCommand
+{
+public:
+    PageDown(ECTextEditor& doc) : subject(doc), CX(0), CY(0) {}
+    void Execute()
+    {
+        CX = subject.GetCursorX();
+        CY = subject.GetCursorY();
+        subject.SetPageNum(subject.GetPageNum() + 1);
+    }
+    void UnExecute()
+    {
+
+        subject.SetPageNum(subject.GetPageNum() - 1);
+        subject.SetCursorX(CX);
+        subject.SetCursorY(CY);
+
+    }
+private:
+    ECTextEditor& subject;
+    int CX;
+    int CY;
 };
 // End of command definitions
 //---------------------------------------------------
@@ -334,6 +569,29 @@ public:
 
         switch (PK)
         {
+        //case CTRL_A: //  for testing purposes
+        //    subject.ClearStatusRows();
+        //    subject.AddStatusRow("mod=" + to_string(subject.GetModifier(CY + 1)) + ", pagenum = " + to_string(subject.GetPageNum()), "AX, AY=" + to_string(subject.GetActualCol(CX)) + ", " + to_string(subject.GetActualRow(CY + 1)) + " : x,y=" + to_string(CX) + ", " + to_string(CY), true);
+        //    //subject.AddStatusRow(subject.GetRowString(CY + 1), "", true);
+        //    //subject.AddStatusRow("actual col=" + to_string(subject.GetActualCol(CX)), "", true);
+        //    break;
+        //case CTRL_B:
+        //    subject.ClearStatusRows();
+        //    subject.AddStatusRow(subject.GetRowString(CY + 1), "", true);
+        //    break;
+        //case CTRL_C:
+        //    exit(1);
+        //    break;
+        case PAGE_UP:
+            if (subject.GetPageNum() == 0)
+            {
+                break;
+            }
+            subject.Execute(new PageUp(subject));
+            break;
+        case PAGE_DOWN:
+            subject.Execute(new PageDown(subject));
+            break;
         case KEY_NULL:
             // If there is no input, skip this
             break;
@@ -344,28 +602,46 @@ public:
             subject.Execute(new MoveCursorRight(subject));
             break;
         case ARROW_DOWN:
-            subject.Execute(new MoveCursorDown(subject, CX));
+            if (CY == subject.GetRowNumInView() - 2)
+            {
+                subject.Execute(new PageDown(subject));
+            }
+            else
+            {
+                subject.Execute(new MoveCursorDown(subject, CX));
+            }
             break;
         case ARROW_UP:
-            subject.Execute(new MoveCursorUp(subject));
+            if (CY == 0 && subject.GetPageNum() != 0)
+            {
+                subject.Execute(new PageUp(subject));
+            }
+            else
+            {
+                subject.Execute(new MoveCursorUp(subject));
+            }
             break;
         case ENTER:
             subject.Execute(new PressEnter(subject, CX));
+            if (CY == subject.GetRowNumInView() - 2)
+            {
+                subject.Execute(new PageDown(subject));
+            }
             break;
         case BACKSPACE:
-        {
-            if (CX == 0 && CY != 0)
             {
-                // Merge two rows if backspacing while on the first position in a row
-                subject.Execute(new BackspaceMerge(subject));
+                if (subject.GetActualCol(CX) == 0 && CY != 0)
+                {
+                    // Merge two rows if backspacing while on the first position in a row
+                    subject.Execute(new BackspaceMerge(subject));
+                }
+                else if (subject.GetActualCol(CX) != 0)
+                {
+                    // Delete a character
+                    subject.Execute(new DeleteCharacter(subject));
+                }
+                break;
             }
-            else if (CX != 0)
-            {
-                // Delete a character
-                subject.Execute(new DeleteCharacter(subject));
-            }
-            break;
-        }
         case CTRL_Z:
             // Undo a command
             subject.Undo();
@@ -375,19 +651,19 @@ public:
             subject.Redo();
             break;
         default:
-        {
-            if (PK >= 32 && PK <= 125)
             {
-                // input a character
-                subject.Execute(new InputCharacter(subject, char(PK)));
+                if (PK >= 32 && PK <= 125)
+                {
+                    // (then) insert a character
+                    subject.Execute(new InputCharacter(subject, char(PK)));
+                }
+                else
+                {
+                    // If this is added, it means that the keystoke handler has not been added yet
+                    subject.AddRow("Coming Soon..." + to_string(PK));
+                }
+                break;
             }
-            else
-            {
-                // If this is added, it means that the keystoke handler has not been added yet
-                subject.AddRow("Coming Soon...");
-            }
-            break;
-        }
         }
     }
 
