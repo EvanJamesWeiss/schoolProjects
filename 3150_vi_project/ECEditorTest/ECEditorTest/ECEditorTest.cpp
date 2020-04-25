@@ -77,7 +77,7 @@ void SaveToFile(ECTextEditor& wnd, string filename)
     
     for (int i = 1; i < wnd.GetTotalRows(); ++i)
     {
-        outFile << wnd.GetRowString(i) << "\n";
+        outFile << wnd.GetOutputString(i) << "\n";
     }
 
     outFile.close();
