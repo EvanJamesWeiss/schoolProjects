@@ -38,7 +38,7 @@ public:
     void InsertRow(int row, string str = "", int mod = 0)
     {
         int Arow = GetActualRow(row);
-        // The get modifier calls need to be before it's modified
+        // Just in case the user tries to add a row at the end of the file
         if ((listRows.begin() + Arow + mod) > listRows.end())
         {
             listRows.push_back(str);
@@ -119,10 +119,9 @@ public:
         return row;
     }
 
-    int GetActualCol(int CX)
+    int GetActualCol(int CX) // Get column number within a string of listRows
     {
-        int mod = 0;
-        // doesn't work: Y + 1, AY + 1 (2nd page), 
+        int mod = 0; 
         int n = this->GetCursorY() + 1;
         while (GetModifier(n) != GetModifier(n - 1))
         {
@@ -146,7 +145,7 @@ public:
 
     int GetRowAdder()
     {
-        return (pageNum * (this->GetRowNumInView() - 1)) - GetOffset();
+        return (pageNum * (this->GetRowNumInView() - 1));
     }
 
 private:
@@ -154,7 +153,7 @@ private:
     vector<string> listRows;
     int pageNum = 0;
     vector<int> modifiers;
-    vector<string> currentDoc; // = vector<string>();
+    vector<string> currentDoc;
 
     ECCommandHistory histCmds;
        
@@ -175,6 +174,7 @@ private:
         }
     }
 
+    // Maps listRows so a new list that can be viewed on screen
     void MapRowsToPage()
     {
         currentDoc.clear();
@@ -199,6 +199,8 @@ private:
         modifiers.push_back(mod);
     }
 
+    // Helper to MapRowsToPage. Used to cut off the first part of the string and return it.
+    // The first part will not be longer than the 
     string SplitRow(string& row)
     {
         int pos = this->GetColNumInView() - 1;
@@ -212,6 +214,7 @@ private:
         return output;
     }
 
+    // used in a few places, just to make things consistent
     int GetOffset()
     {
         //return 0;
@@ -319,7 +322,6 @@ private:
     int CX;
 };
 
-// Works for first page
 class InputCharacter : public ECCommand
 {
 public:
@@ -491,14 +493,14 @@ public:
         string lineStr = subject.GetRowString(subject.GetCursorY() + 1);
         string aboveStr = subject.GetRowString(subject.GetCursorY());
         string comboStr = aboveStr + lineStr;
+        int currlen = subject.GetCurrentDocString(subject.GetCursorY()).length();
         subject.UpdateRow(subject.GetCursorY(), comboStr);
         subject.DeleteRow(subject.GetCursorY() + 1);
         if (subject.GetCursorY() != 0)
         {
             subject.SetCursorY(subject.GetCursorY() - 1);
         }
-        int currlen = subject.GetCurrentDocString(subject.GetCursorY() + 1).length();
-        subject.SetCursorX(((int)aboveStr.length() > subject.GetColNumInView()) ? currlen - lineStr.length() : aboveStr.length());
+        subject.SetCursorX(((int)aboveStr.length() > subject.GetColNumInView()) ? currlen : aboveStr.length());
     }
 
 private:
@@ -567,19 +569,19 @@ public:
 
         switch (PK)
         {
-        case CTRL_A:
-            subject.ClearStatusRows();
-            subject.AddStatusRow("mod=" + to_string(subject.GetModifier(CY + 1)) + ", pagenum = " + to_string(subject.GetPageNum()), "AX, AY=" + to_string(subject.GetActualCol(CX)) + ", " + to_string(subject.GetActualRow(CY + 1)) + " : x,y=" + to_string(CX) + ", " + to_string(CY), true);
-            //subject.AddStatusRow(subject.GetRowString(CY + 1), "", true);
-            //subject.AddStatusRow("actual col=" + to_string(subject.GetActualCol(CX)), "", true);
-            break;
-        case CTRL_B:
-            subject.ClearStatusRows();
-            subject.AddStatusRow(subject.GetRowString(CY + 1), "", true);
-            break;
-        case CTRL_C:
-            exit(1);
-            break;
+        //case CTRL_A: //  for testing purposes
+        //    subject.ClearStatusRows();
+        //    subject.AddStatusRow("mod=" + to_string(subject.GetModifier(CY + 1)) + ", pagenum = " + to_string(subject.GetPageNum()), "AX, AY=" + to_string(subject.GetActualCol(CX)) + ", " + to_string(subject.GetActualRow(CY + 1)) + " : x,y=" + to_string(CX) + ", " + to_string(CY), true);
+        //    //subject.AddStatusRow(subject.GetRowString(CY + 1), "", true);
+        //    //subject.AddStatusRow("actual col=" + to_string(subject.GetActualCol(CX)), "", true);
+        //    break;
+        //case CTRL_B:
+        //    subject.ClearStatusRows();
+        //    subject.AddStatusRow(subject.GetRowString(CY + 1), "", true);
+        //    break;
+        //case CTRL_C:
+        //    exit(1);
+        //    break;
         case PAGE_UP:
             if (subject.GetPageNum() == 0)
             {
