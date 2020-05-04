@@ -276,10 +276,17 @@ public:
     void Execute()
     {
         CX = subject.GetCursorX();
-        subject.SetCursorX(0);
         if (subject.GetCursorY() != 0)
         {
+            if (CX > (int)subject.GetCurrentDocString(subject.GetCursorY()).length())
+            {
+                subject.SetCursorX(subject.GetCurrentDocString(subject.GetCursorY()).length());
+            }
             subject.SetCursorY(subject.GetCursorY() - 1);
+        }
+        else
+        {
+            subject.SetCursorX(0);
         }
     }
     void UnExecute()
@@ -310,9 +317,12 @@ public:
     }
     void Execute()
     {
-        subject.SetCursorX(0);
         if (subject.GetCursorY() + 2 < subject.GetNumFilledRows())
         {
+            if (CX > (int)subject.GetCurrentDocString(subject.GetCursorY() + 2).length())
+            {
+                subject.SetCursorX(subject.GetCurrentDocString(subject.GetCursorY() + 2).length());
+            }
             subject.SetCursorY(subject.GetCursorY() + 1);
         }
     }
@@ -392,34 +402,94 @@ private:
 class DeleteCharacter : public ECCommand
 {
 public:
-    DeleteCharacter(ECTextEditor& doc) : subject(doc), PK(char(0)) {}
+    DeleteCharacter(ECTextEditor& doc) : subject(doc), PK(char(0)), Movedup(false) {}
     void UnExecute()
     {
-        int CX = subject.GetCursorX();
         string mystr = subject.GetRowString(subject.GetCursorY() + 1);
-        mystr.insert(mystr.begin() + subject.GetActualCol(CX), PK);
+        mystr.insert(mystr.begin() + subject.GetActualCol(subject.GetCursorX()), PK);
         subject.UpdateRow(subject.GetCursorY() + 1, mystr);
-        if (subject.GetCursorX() + 1 <= (int)subject.GetRowString(subject.GetCursorY() + 1).length() + 1)
+        if (Movedup)
         {
-            subject.SetCursorX(subject.GetCursorX() + 1);
+            subject.SetCursorY(subject.GetCursorY() + 1);
         }
+        subject.SetCursorX(CX);
     }
     void Execute()
     {
-        int CX = subject.GetCursorX();
+        CX = subject.GetCursorX();
+
+        // Get the distance to the nearest space character (to the right)
+        int initdist = DistToSpace(CX);
+        int tospace = DistToSpace(0);
+
         string mystr = subject.GetRowString(subject.GetCursorY() + 1);
         PK = mystr.at(subject.GetActualCol(CX) - 1);
         mystr.erase(mystr.begin() + subject.GetActualCol(CX) - 1);
+
+        bool Up = ShouldMoveUp(CX);
+
         subject.UpdateRow(subject.GetCursorY() + 1, mystr);
+
         if (subject.GetCursorX() - 1 >= 0)
         {
             subject.SetCursorX(subject.GetCursorX() - 1);
+        }
+        else
+        {
+            subject.SetCursorX(DistToSpace(CX) - initdist);
+        }
+
+        if (Up)
+        {
+            Movedup = true;
+            subject.SetCursorX(subject.GetColNumInView() - 1 - tospace + CX);
+            subject.SetCursorY(subject.GetCursorY() - 1);
         }
     }
 
 private:
     ECTextEditor& subject;
     char PK;
+    int CX = 0;
+    bool Movedup;
+
+    int DistToSpace(int CX)
+    {
+        if (CX != 0) { return -1; }
+        string currentrow = subject.GetCurrentDocString(subject.GetCursorY() + 1);
+        while (currentrow[CX] != ' ')
+        {
+            CX += 1;
+        }
+        return CX;
+    }
+
+    bool ShouldMoveUp(int CX)
+    {
+        bool output = true;
+        if (subject.GetActualRow(subject.GetCursorY()) == 0)
+        {
+            return false;
+        }
+        output &= (CX <= DistToSpace(0)); // if the cursor is in the first word of a line
+        
+        // If the sum of length of the line above and length of the first word in the row (with a char deleted)
+        // can fit in the row above
+        output &= ((int)subject.GetCurrentDocString(subject.GetCursorY()).length() + DistToSpace(0) - 1 <= subject.GetColNumInView() - 2);
+
+        // If it's the first line in the paragraph, don't worry about it
+        output &= (subject.GetModifier(subject.GetCursorY()) != subject.GetModifier(subject.GetCursorY() + 1));
+
+        return output;
+    }
+
+    void msg(string first, string second = "")
+    {
+        subject.ClearStatusRows();
+        subject.AddStatusRow(first, second, true);
+    }
+
+
 };
 
 class PressEnter : public ECCommand
@@ -569,16 +639,26 @@ public:
 
         switch (PK)
         {
-        //case CTRL_A: //  for testing purposes
-        //    subject.ClearStatusRows();
-        //    subject.AddStatusRow("mod=" + to_string(subject.GetModifier(CY + 1)) + ", pagenum = " + to_string(subject.GetPageNum()), "AX, AY=" + to_string(subject.GetActualCol(CX)) + ", " + to_string(subject.GetActualRow(CY + 1)) + " : x,y=" + to_string(CX) + ", " + to_string(CY), true);
+        case CTRL_A: //  for testing purposes
+            subject.ClearStatusRows();
+            subject.AddStatusRow("Len of above line=" + to_string(subject.GetCurrentDocString(CY).length()), "Total len=" + to_string(subject.GetColNumInView()), true);
         //    //subject.AddStatusRow(subject.GetRowString(CY + 1), "", true);
         //    //subject.AddStatusRow("actual col=" + to_string(subject.GetActualCol(CX)), "", true);
-        //    break;
-        //case CTRL_B:
-        //    subject.ClearStatusRows();
-        //    subject.AddStatusRow(subject.GetRowString(CY + 1), "", true);
-        //    break;
+            break;
+        case CTRL_B:
+        {
+            subject.ClearStatusRows();
+            int i = 0;
+            string s = subject.GetCurrentDocString(CY + 1);
+            while (s[i] != ' ')
+            {
+                i += 1;
+            }
+            s = s.substr(0, i);
+            subject.AddStatusRow("first word=" + s, "Length is=" + to_string(s.length()), true);
+            //    subject.AddStatusRow(subject.GetRowString(CY + 1), "", true);
+            break;
+        }
         //case CTRL_C:
         //    exit(1);
         //    break;

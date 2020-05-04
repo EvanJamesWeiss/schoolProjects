@@ -83,6 +83,18 @@ void SaveToFile(ECTextEditor& wnd, string filename)
     outFile.close();
 }
 
+
+/* TODO
+
+(fixed) Bug fix: Backspacing in paragraphs
+
+(implemented) Feature: Moving cursor up and down needs to go as far right as it can
+
+
+
+*/
+
+
 int main(int argc, char *argv[])
 {
 
