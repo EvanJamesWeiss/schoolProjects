@@ -639,26 +639,26 @@ public:
 
         switch (PK)
         {
-        case CTRL_A: //  for testing purposes
-            subject.ClearStatusRows();
-            subject.AddStatusRow("Len of above line=" + to_string(subject.GetCurrentDocString(CY).length()), "Total len=" + to_string(subject.GetColNumInView()), true);
-        //    //subject.AddStatusRow(subject.GetRowString(CY + 1), "", true);
-        //    //subject.AddStatusRow("actual col=" + to_string(subject.GetActualCol(CX)), "", true);
-            break;
-        case CTRL_B:
-        {
-            subject.ClearStatusRows();
-            int i = 0;
-            string s = subject.GetCurrentDocString(CY + 1);
-            while (s[i] != ' ')
-            {
-                i += 1;
-            }
-            s = s.substr(0, i);
-            subject.AddStatusRow("first word=" + s, "Length is=" + to_string(s.length()), true);
-            //    subject.AddStatusRow(subject.GetRowString(CY + 1), "", true);
-            break;
-        }
+        //case CTRL_A: //  for testing purposes
+        //    subject.ClearStatusRows();
+        //    subject.AddStatusRow("Len of above line=" + to_string(subject.GetCurrentDocString(CY).length()), "Total len=" + to_string(subject.GetColNumInView()), true);
+        ////    //subject.AddStatusRow(subject.GetRowString(CY + 1), "", true);
+        ////    //subject.AddStatusRow("actual col=" + to_string(subject.GetActualCol(CX)), "", true);
+        //    break;
+        //case CTRL_B:
+        //{
+        //    subject.ClearStatusRows();
+        //    int i = 0;
+        //    string s = subject.GetCurrentDocString(CY + 1);
+        //    while (s[i] != ' ')
+        //    {
+        //        i += 1;
+        //    }
+        //    s = s.substr(0, i);
+        //    subject.AddStatusRow("first word=" + s, "Length is=" + to_string(s.length()), true);
+        //    //    subject.AddStatusRow(subject.GetRowString(CY + 1), "", true);
+        //    break;
+        //}
         //case CTRL_C:
         //    exit(1);
         //    break;

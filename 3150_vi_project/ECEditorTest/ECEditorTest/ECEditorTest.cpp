@@ -84,17 +84,6 @@ void SaveToFile(ECTextEditor& wnd, string filename)
 }
 
 
-/* TODO
-
-(fixed) Bug fix: Backspacing in paragraphs
-
-(implemented) Feature: Moving cursor up and down needs to go as far right as it can
-
-
-
-*/
-
-
 int main(int argc, char *argv[])
 {
 
@@ -110,6 +99,6 @@ int main(int argc, char *argv[])
 
     // After the user quits, save the text in the editor to the file
     SaveToFile(wndTest, (string)argv[1]);
-    
+   
     return 0;
 }
