@@ -6,6 +6,7 @@ Public Class frmMain
     Private strFileName As String = "No File Selected"
 
     Private Sub btnChoose_Click(sender As Object, e As EventArgs) Handles btnChoose.Click
+        ' Choose a file
         Dim fd As OpenFileDialog = New OpenFileDialog()
         strFileName = "No File Selected"
 
