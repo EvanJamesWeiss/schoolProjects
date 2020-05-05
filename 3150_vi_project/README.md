@@ -88,6 +88,7 @@ __The following lists, in no specific order, the algorithms of various methods a
   
 ### Possible Improvements:
   The UpdateView method within ECTextEditor runs relatively slowly. The present logic requires all lines to be cleared from the view, currentDoc, and modifiers, all to be repopulated and reconstructed again. The reasoning behind this originally was if a line in listRows suddenly spans 2 lines instead of just 1, I will need to shift all lines back in currentDoc and modifiers. Now this would still be faster, but would require several lines of logic to determine where and when to make these shifts. The improvement to my current code would be to implement this conditional shifting within ECTextEditor instead of clearing and repopulating them every time the view is updated.
+  
   ECTextViewImp also does not provide an set or update method for it's rows, which necessitated me building my own. Another improvement would be to alter ECTextViewImp directly so it provides a set method for it's rows. This would eliminate the need for clearing the view's rows and re-adding them during every update.
   
 ## Section 6: Extra functionality
